@@ -10,7 +10,7 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Login Orto&Sapori S.R.L", layout="wide", page_icon="🌱")
+st.set_page_config(page_title="Login", layout="wide", page_icon="🌱")
 
 st.markdown("""
     <style>
@@ -152,7 +152,7 @@ def login_page():
             img_sx = Image.open(img_sx_path)
             st.image(img_sx, width=350)
 
-        st.markdown("<div class='title'>Azienda Agricola</div>", unsafe_allow_html=True)
+        st.markdown("<div class='title'>Orto&Sapori S.R.L</div>", unsafe_allow_html=True)
         st.markdown("<div class='subtitle'>Benvenuto nel gestionale aziendale,<br>inserisci le tue credenziali per accedere.</div>", unsafe_allow_html=True)
 
         st.markdown("<div style='font-size: 2.1rem; color: #2f4f2f; font-weight: bold; text-align: center;'>Login</div>", unsafe_allow_html=True)
@@ -247,9 +247,6 @@ def get_ortaggi_stagionali(stagione_corrente):
 
         mesi_validi = [mese for mese in mesi_da_considerare if mese in colonne_db]
         mesi_mancanti = [mese for mese in mesi_da_considerare if mese not in colonne_db]
-
-        if mesi_mancanti:
-            print(f"Mesi non trovati nel database: {', '.join(mesi_mancanti)}")
 
         if not mesi_validi:
             print("Nessun mese disponibile per questa stagione.")
@@ -797,9 +794,6 @@ def esporta_prezzi_per_mese(mese_input):
         print("Mese non valido per la determinazione della stagione.")
         return None
 
-    print(f"Mese selezionato (formato ISO): {mese_formattato}")
-    print(f"Stagione rilevata: {stagione_corrente}")
-
     db_path = os.path.join("database", "ortaggi.db")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -807,7 +801,6 @@ def esporta_prezzi_per_mese(mese_input):
     try:
         cursor.execute("PRAGMA table_info(ortaggi)")
         colonne = [col[1] for col in cursor.fetchall()]
-        print("Colonne trovate nel database:", colonne)
 
         if mese_formattato not in colonne:
             print(f"Il mese {mese_formattato} non è presente tra le colonne.")
@@ -979,11 +972,9 @@ def mostra_grafico_temperatura_raw(mese_selezionato):
     c = conn.cursor()
 
     try:
-        print(f"Mese selezionato: {mese_selezionato}")
         
         mese_formattato = mese_selezionato.strip().split(" ")
         mese_formattato = f"{mese_formattato[1]}-{mese_formattato[0]}"
-        print(f"Mese formattato per la query: {mese_formattato}")
 
         query = """
         SELECT * FROM meteo_fittizio
@@ -992,8 +983,6 @@ def mostra_grafico_temperatura_raw(mese_selezionato):
         """
         c.execute(query, (mese_formattato,))
         rows = c.fetchall()
-
-        print(f"Dati recuperati dalla query: {rows}")
         
         if not rows:
             st.warning("Nessun dato trovato per il mese selezionato.")
