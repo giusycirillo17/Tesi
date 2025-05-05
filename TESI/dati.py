@@ -182,25 +182,32 @@ def crea_database_meteo():
     print("Creando database solo con dati fittizi...")
 
     try:
+        # Assicurati che le cartelle esistano
+        os.makedirs('meteo', exist_ok=True)
+        os.makedirs('database', exist_ok=True)
+
         file_fittizio = os.path.join('meteo', "dati_fittizi_meteo.csv")
         db_file = os.path.join('database', 'meteo.db')
 
+        # Verifica che il file CSV esista
         if not os.path.exists(file_fittizio):
             print(f"File '{file_fittizio}' non trovato.")
             return
 
+        # Elimina il database esistente se c'è
         if os.path.exists(db_file):
             os.remove(db_file)
             print(f"Database '{db_file}' esistente eliminato.")
 
+        # Caricamento e pulizia dei dati dal CSV
         df_fittizio = pd.read_csv(file_fittizio, parse_dates=["data"])
-
         df_fittizio['temp'] = df_fittizio['temp'].str.replace("°C", "").astype(float)
         df_fittizio['umidita'] = df_fittizio['umidita'].str.replace("%", "").astype(float)
         df_fittizio['precipitazioni'] = df_fittizio['precipitazioni'].str.replace(" mm", "").astype(float)
 
         df_fittizio = df_fittizio.dropna(subset=['temp', 'descrizione', 'umidita', 'precipitazioni'])
 
+        # Connessione e creazione tabella
         conn = sqlite3.connect(db_file)
         c = conn.cursor()
 
@@ -214,25 +221,25 @@ def crea_database_meteo():
             )
         ''')
 
+        # Inserimento dati nel database
         for index, row in df_fittizio.iterrows():
             try:
-                data = row['data'].strftime("%Y-%m-%d")
-                temp = float(row['temp'])
-                descrizione = str(row['descrizione'])
-                umidita = float(row['umidita'])
-                precipitazioni = float(row['precipitazioni'])
-
                 c.execute('''
                     INSERT INTO meteo_fittizio (data, temp, descrizione, umidita, precipitazioni) 
                     VALUES (?, ?, ?, ?, ?)
-                ''', (data, temp, descrizione, umidita, precipitazioni))
+                ''', (
+                    row['data'].strftime("%Y-%m-%d"),
+                    float(row['temp']),
+                    str(row['descrizione']),
+                    float(row['umidita']),
+                    float(row['precipitazioni'])
+                ))
             except Exception as e:
                 print(f"Errore inserendo i dati per {row['data']}: {e}")
                 continue
 
         conn.commit()
         conn.close()
-
         print("Database creato e popolato correttamente!")
 
     except Exception as e:
@@ -352,32 +359,39 @@ def crea_dati_fittizi_ortaggi():
 
 
 def crea_database_ortaggi():
+    # Crea la cartella 'database' se non esiste
+    os.makedirs('database', exist_ok=True)
+
+    # Crea la cartella 'produzione' se non esiste
+    os.makedirs('produzione', exist_ok=True)
+
     db_file = os.path.join('database', 'ortaggi.db')
 
+    # Elimina il database esistente per ricrearlo da zero
     if os.path.exists(db_file):
         os.remove(db_file)
         print("Database esistente eliminato.")
-    
+
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
 
     file_csv = os.path.join('produzione', 'ortaggi_completo_fittizio.csv')
-    
+
     try:
         with open(file_csv, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
             header = next(reader)
             colonne_mesi = [colonna for colonna in header if '-' in colonna]
-            
+
             query_creazione = '''CREATE TABLE IF NOT EXISTS ortaggi (
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    stagione TEXT,  -- Nuova colonna Stagione
+                                    stagione TEXT,
                                     nome TEXT,
                                     valuta TEXT,
-                                    '''
-            
+                                 '''
+
             for colonna in colonne_mesi:
-                query_creazione += f'"{colonna}" REAL, ' 
+                query_creazione += f'"{colonna}" REAL, '
 
             query_creazione += '''produzione_2024 REAL,
                                   semina TEXT,
@@ -386,42 +400,35 @@ def crea_database_ortaggi():
                                   note TEXT)'''
 
             c.execute(query_creazione)
-            
+
             dati_inseriti = False
 
             for row in reader:
                 if len(row) < len(header):
                     row += ["valore inesistente"] * (len(header) - len(row))
-                
+
                 stagione, nome, valuta = row[0], row[1], row[2]
-                
-                c.execute('''SELECT 1 FROM ortaggi WHERE nome = ? AND valuta = ? LIMIT 1''', (nome, valuta))
-                
+
+                c.execute('SELECT 1 FROM ortaggi WHERE nome = ? AND valuta = ? LIMIT 1', (nome, valuta))
                 if c.fetchone() is None:
-                    query_inserimento = '''INSERT INTO ortaggi (
-                                            stagione, nome, valuta, '''
-                    
-                    for colonna in colonne_mesi:
-                        query_inserimento += f'"{colonna}", '
-                    
-                    query_inserimento += '''produzione_2024, semina, trapianto, raccolta, note)
-                                           VALUES (?, ?, ?, '''
-                    
-                    query_inserimento += ', '.join('?' * len(colonne_mesi)) + ", ?, ?, ?, ?, ?)"
-                    
-                    c.execute(query_inserimento, [stagione] + row[1:])
+                    query_inserimento = f'''INSERT INTO ortaggi (
+                                            stagione, nome, valuta, {", ".join(f'"{col}"' for col in colonne_mesi)},
+                                            produzione_2024, semina, trapianto, raccolta, note)
+                                            VALUES ({", ".join(["?"] * (3 + len(colonne_mesi) + 5))})'''
+                    c.execute(query_inserimento, [stagione, nome, valuta] + row[3:])
                     dati_inseriti = True
 
-        conn.commit()
+            conn.commit()
 
-        if dati_inseriti:
-            print("Dati inseriti con successo nel database!")
-        else:
-            print("Ci sono già tutti i dati all'interno del database.")
+            if dati_inseriti:
+                print("Dati inseriti con successo nel database!")
+            else:
+                print("Ci sono già tutti i dati all'interno del database.")
 
+    except FileNotFoundError:
+        print(f"Errore: il file CSV {file_csv} non è stato trovato.")
     except Exception as e:
         print(f"Errore durante l'inserimento nel database: {e}")
-    
     finally:
         conn.close()
 
