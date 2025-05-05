@@ -453,7 +453,7 @@ def esporta_database_ortaggi():
     finally:
         conn.close()
 
-def crea_db_utenti():
+def crea_database_utenti():
     try:
         if not os.path.exists('database'):
             os.makedirs('database')
@@ -509,7 +509,7 @@ def esporta_database_utenti():
 
 # Funzione principale
 if __name__ == "__main__":
-    print("🚀 Avvio creazione completa dei dati...")
+    print("Avvio creazione completa dei dati...")
 
     scarica_dati_meteo()
     crea_dati_fittizi_meteo()
@@ -518,7 +518,7 @@ if __name__ == "__main__":
     crea_dati_fittizi_ortaggi()
     crea_database_ortaggi()
     #esporta_database_ortaggi()
-    crea_db_utenti()
+    crea_database_utenti()
     #esporta_database_utenti()
 
     print("Tutto aggiornato con successo!")
